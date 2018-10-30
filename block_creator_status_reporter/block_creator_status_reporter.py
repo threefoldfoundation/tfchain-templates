@@ -64,10 +64,15 @@ class BlockCreatorStatusReporter(TemplateBase):
         except StateCheckError:
             return
 
+        self.logger.info("monitor block reporter")
+
         if self._block_creator:
+            self.logger.info("start gathering stats about block creator")
             report_task = self._block_creator.schedule_action('report')
         if self._node:
+            self.logger.info("start gathering stats about node")
             stats_task = self._node.schedule_action('stats')
+            self.logger.info("start gathering info about node")
             info_task = self._node.schedule_action('info')
 
         payload = dict()
@@ -76,12 +81,15 @@ class BlockCreatorStatusReporter(TemplateBase):
             # Gather chain info
             report_task.wait()
             if report_task.state == 'ok':
+                self.logger.info("stats about of block creator received")
                 payload["chain_status"] = report_task.result
             else:
+                self.logger.error("error during stats gathering of block creator")
                 payload["chain_status"] = {'wallet_status': 'error'}
 
         if self._node:
             # Gather stats info
+            self.logger.info("stats about of node received")
             stats_task.wait()
             if stats_task.state == 'ok':
                 stats = dict()
@@ -91,8 +99,10 @@ class BlockCreatorStatusReporter(TemplateBase):
 
             # Gather node info
             info_task.wait()
+            self.logger.info("info about of node received")
             if info_task.state == 'ok':
                 payload['info'] = info_task.result
 
+        self.logger.info("pushing data to influxdb")
         headers = {'content-type': 'application/json'}
         requests.request('PUT', self._url, json=payload, headers=headers)
