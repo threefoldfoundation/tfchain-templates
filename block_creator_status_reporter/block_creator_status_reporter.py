@@ -57,7 +57,7 @@ class BlockCreatorStatusReporter(TemplateBase):
     def stop(self):
         self.state.delete('status', 'running')
 
-    @timeout(60, error_message='Monitor function call timed out')
+    @timeout(150, error_message='Monitor function call timed out')
     def _monitor(self):
         try:
             self.state.check('status', 'running', 'ok')
