@@ -6,14 +6,14 @@ import os
 
 import pytest
 
-from js9 import j
+from jumpscale import j
 
 from zerorobot import config, template_collection
 from zerorobot.template_uid import TemplateUID
 from zerorobot.template.state import StateCheckError
 
 class TestPeerDiscoveryTemplate(TestCase):
-    
+
     @classmethod
     def setUpClass(cls):
         cls.valid_data = {
@@ -72,4 +72,3 @@ class TestPeerDiscoveryTemplate(TestCase):
         discovery.state.check('actions', 'install', 'ok')
 
 
-        

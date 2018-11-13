@@ -2,7 +2,7 @@ import os
 import time
 from random import shuffle
 
-from js9 import j
+from jumpscale import j
 from zerorobot.service_collection import ServiceNotFoundError
 from zerorobot.template.base import TemplateBase
 from zerorobot.template.decorator import retry
@@ -21,34 +21,26 @@ class BlockCreator(TemplateBase):
 
     def __init__(self, name=None, guid=None, data=None):
         super().__init__(name=name, guid=guid, data=data)
-
         # bind uninstall action to the delete method
-        #self.add_delete_callback(self.uninstall)        
-        
+        self.add_delete_callback(self.uninstall)
+        self._node_sal = j.clients.zos.get('local')
+
         wallet_passphrase = self.data.get('walletPassphrase')
         if not wallet_passphrase:
             self.data['walletPassphrase'] = j.data.idgenerator.generateGUID()
 
         # peer discovery service
         self._discovery = None
-        
+
         self.recurring_action('_monitor', 30)  # every 30 seconds
-
-
-    @property
-    def _node_sal(self):
-        return j.clients.zero_os.sal.get_node(self.data['node'])
-
 
     @property
     def _container_sal(self):
         return self._node_sal.containers.get(self._container_name)
 
-
     @property
     def _container_name(self):
         return "container-%s" % self.guid
-
 
     @property
     def _daemon_sal(self):
@@ -60,8 +52,7 @@ class BlockCreator(TemplateBase):
             'data_dir': self._DATA_DIR,
             'network': self.data.get('network', 'standard')
         }
-        return j.clients.zero_os.sal.tfchain.daemon(**kwargs)
-
+        return j.sal_zos.tfchain.daemon(**kwargs)
 
     @property
     def _client_sal(self):
@@ -71,8 +62,7 @@ class BlockCreator(TemplateBase):
             'api_addr': 'localhost:%s' % self.data['apiPort'],
             'wallet_passphrase': self.data['walletPassphrase'],
         }
-        return j.clients.zero_os.sal.tfchain.client(**kwargs)
-
+        return j.sal_zos.tfchain.client(**kwargs)
 
     def _get_container(self):
         sp = self._node_sal.storagepools.get('zos-cache')
@@ -93,7 +83,7 @@ class BlockCreator(TemplateBase):
             'source': vol,
             'target': self._DATA_DIR
         },
-        {
+            {
             'source': vol_backup,
             'target': self._BACKUP_DIR
         },
@@ -112,7 +102,7 @@ class BlockCreator(TemplateBase):
                 raise RuntimeError("Found multiple eligible interfaces for macvlan parent: %s" % ", ".join(c['dev'] for c in candidates))
             parent_if = candidates[0]['dev']
 
-        nic = {'type': 'macvlan', 'id': parent_if, 'name': 'stoffel', 'config': { 'dhcp': True }}
+        nic = {'type': 'macvlan', 'id': parent_if, 'name': 'stoffel', 'config': {'dhcp': True}}
         if self.data['macAddress']:
             nic['hwaddr'] = self.data['macAddress']
         container_data = {
@@ -122,7 +112,6 @@ class BlockCreator(TemplateBase):
             'mounts': mounts
         }
         return self.api.services.find_or_create(CONTAINER_TEMPLATE_UID, self._container_name, data=container_data)
-
 
     @retry((RuntimeError), tries=5, delay=2, backoff=2)
     def _wallet_init(self):
@@ -139,7 +128,6 @@ class BlockCreator(TemplateBase):
         self._client_sal.wallet_init()
         self.data['walletSeed'] = self._client_sal.recovery_seed
         self.state.set('wallet', 'init', 'ok')
-
 
     @retry((RuntimeError), tries=5, delay=2, backoff=2)
     def _wallet_unlock(self):
@@ -162,7 +150,6 @@ class BlockCreator(TemplateBase):
         self._client_sal.wallet_unlock()
         self.state.set('wallet', 'unlock', 'ok')
 
-
     def install(self):
         """
         Creating tfchain container with the provided flist, and configure mounts for datadirs
@@ -178,7 +165,6 @@ class BlockCreator(TemplateBase):
                 container.schedule_action(action).wait(die=True)
 
         self.state.set('actions', 'install', 'ok')
-
 
     def uninstall(self):
         """
@@ -208,7 +194,6 @@ class BlockCreator(TemplateBase):
         self.state.delete('wallet', 'unlock')
         self.state.delete('wallet', 'init')
 
-
     def start(self):
         """
         start both tfchain daemon and client
@@ -231,7 +216,6 @@ class BlockCreator(TemplateBase):
 
         self.state.set('actions', 'start', 'ok')
 
-
     def stop(self):
         """
         stop tfchain daemon
@@ -244,12 +228,11 @@ class BlockCreator(TemplateBase):
             container.schedule_action('stop').wait(die=True)
         except (ServiceNotFoundError, LookupError):
             container = self._get_container()
-            container.schedule_action('install').wait(die=True)      
+            container.schedule_action('install').wait(die=True)
 
         self.state.delete('status', 'running')
         self.state.delete('actions', 'start')
         self.state.delete('wallet', 'unlock')
-
 
     def upgrade(self, tfchainFlist=None):
         """upgrade the container with an updated flist
@@ -276,7 +259,6 @@ class BlockCreator(TemplateBase):
         # restart daemon in new container
         self.start()
 
-
     @retry((RuntimeError), tries=3, delay=2, backoff=2)
     def wallet_address(self):
         """
@@ -288,7 +270,6 @@ class BlockCreator(TemplateBase):
             self.data['walletAddr'] = self._client_sal.wallet_address
         return self.data['walletAddr']
 
-
     @retry((RuntimeError), tries=3, delay=2, backoff=2)
     def wallet_amount(self):
         """
@@ -297,7 +278,6 @@ class BlockCreator(TemplateBase):
         self.state.check('wallet', 'unlock', 'ok')
         return self._client_sal.wallet_amount()
 
-
     @retry((RuntimeError), tries=3, delay=2, backoff=2)
     def consensus_stat(self):
         """
@@ -305,7 +285,6 @@ class BlockCreator(TemplateBase):
         """
         self.state.check('status', 'running', 'ok')
         return self._client_sal.consensus_stat()
-
 
     @retry((RuntimeError), tries=3, delay=2, backoff=2)
     def report(self):
@@ -331,7 +310,6 @@ class BlockCreator(TemplateBase):
 
         return report
 
-
     def _monitor(self):
         """ Unlock wallet if locked """
         self.state.check('actions', 'install', 'ok')
@@ -343,7 +321,7 @@ class BlockCreator(TemplateBase):
                 # get container status
                 if self._client_sal.wallet_status() == 'locked':
                     self.state.delete('wallet', 'unlock')
-                
+
                 self._wallet_unlock()
 
                 return
@@ -365,25 +343,24 @@ class BlockCreator(TemplateBase):
         self.install()
         self.start()
 
-
     def start_peer_discovery(self, interval_scan_network=43200, interval_add_peer=1800):
         """ Create service for peer discovery
-        
-            :param interval_scan_network: interval of scanning network in seconds. 
+
+            :param interval_scan_network: interval of scanning network in seconds.
              Defalt interval is 24 hours.
-            :param interval_add_peer: interval between adding new peers in seconds. 
+            :param interval_add_peer: interval between adding new peers in seconds.
              Default interval is 30 min.
         """
 
         self.state.check('actions', 'install', 'ok')
-        
+
         self.logger.info('start peer discovery')
 
         # create a service for peer discovery
         self._discovery = self.api.services.find_or_create(
             template_uid=PEER_DISCOVERY_TEMPLATE_UID,
             service_name='peer_discovery_of_{}'.format(self.name),
-            data = {
+            data={
                 'node': self.data['node'],
                 'container': self._container_name,
                 'rpcPort': self.data['rpcPort'],
@@ -424,14 +401,12 @@ class BlockCreator(TemplateBase):
             self._daemon_sal.start()
             self._wallet_unlock()
 
-
     def list_backups(self):
         """ List all backups """
 
         self.state.check('status', 'running', 'ok')
-        
-        return self._container_sal.client.filesystem.list(self._BACKUP_DIR)
 
+        return self._container_sal.client.filesystem.list(self._BACKUP_DIR)
 
     def restore_backup(self, name):
         """
@@ -456,4 +431,4 @@ def error_check(result, message):
 
     if result.state != 'SUCCESS':
         err = '{}: {} \n {}'.format(message, result.stderr, result.data)
-        raise RuntimeError(err)    
+        raise RuntimeError(err)

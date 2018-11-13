@@ -1,4 +1,4 @@
-from js9 import j
+from jumpscale import j
 import os
 import time
 from zerorobot.template.base import TemplateBase
@@ -15,16 +15,13 @@ class Explorer(TemplateBase):
 
     def __init__(self, name=None, guid=None, data=None):
         super().__init__(name=name, guid=guid, data=data)
+        self._node_sal = j.clients.zos.get('local')
         self._tfchain_sal = None
         self.recurring_action('_monitor', 30)  # every 30 seconds
 
     def validate(self):
         if not self.data.get('domain'):
             raise ValueError("domain need to be specified")
-
-    @property
-    def _node_sal(self):
-        return j.clients.zero_os.sal.get_node(self.data['node'])
 
     @property
     def _container_sal(self):
@@ -45,7 +42,7 @@ class Explorer(TemplateBase):
             'domain': self.data['domain'],
             'network': self.data.get('network', 'standard')
         }
-        return j.clients.zero_os.sal.tfchain.explorer(**kwargs)
+        return j.sal_zos.tfchain.explorer(**kwargs)
 
     def set_mac_address(self, mac_address):
         self.data['macAddress'] = mac_address
@@ -84,7 +81,7 @@ class Explorer(TemplateBase):
                 raise RuntimeError("Found multiple eligible interfaces for macvlan parent: %s" % ", ".join(c['dev'] for c in candidates))
             parent_if = candidates[0]['dev']
 
-        nic = {'type': 'macvlan', 'id': parent_if, 'name': 'stoffel', 'config': { 'dhcp': True }}
+        nic = {'type': 'macvlan', 'id': parent_if, 'name': 'stoffel', 'config': {'dhcp': True}}
         if self.data['macAddress']:
             nic['hwaddr'] = self.data['macAddress']
 
