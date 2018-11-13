@@ -204,6 +204,12 @@ class Explorer(TemplateBase):
         self.state.check('status', 'running', 'ok')
         return self._explorer_sal.gateway_stat()
 
+    def update_explorer_flist(self, flist):
+        self.data['explorerFlist'] = flist
+
+    def update_tfchain_flist(self, flist):
+        self.data['tfchainFlist'] = flist
+
     def _monitor(self):
         self.state.check('actions', 'install', 'ok')
         self.state.check('actions', 'start', 'ok')

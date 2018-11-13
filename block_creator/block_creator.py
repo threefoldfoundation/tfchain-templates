@@ -425,6 +425,9 @@ class BlockCreator(TemplateBase):
             self._daemon_sal.start()
             self._wallet_unlock()
 
+    def update_tfchain_flist(self, flist):
+        self.data['tfchainFlist'] = flist
+
 
 def error_check(result, message):
     """ Raise error if call wasn't successfull """
