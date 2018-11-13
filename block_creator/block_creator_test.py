@@ -116,7 +116,7 @@ class TestBlockCreatorTemplate(TestCase):
         }
         # test creation of container
         bc.api.services.find_or_create.assert_called_once_with(
-            'github.com/zero-os/0-templates/container/0.0.1',
+            'github.com/threefoldtech/0-templates/container/0.0.1',
             bc._container_name,
             data=container_data)
 
@@ -433,7 +433,7 @@ class TestBlockCreatorTemplate(TestCase):
         bc._monitor()
 
         bc.state.check('status', 'running', 'ok')
-        bc.api.services.get.assert_called_with(template_uid='github.com/zero-os/0-templates/container/0.0.1', name=bc._container_name)
+        bc.api.services.get.assert_called_with(template_uid='github.com/threefoldtech/0-templates/container/0.0.1', name=bc._container_name)
         container.delete.assert_called_once_with()
         bc.install.assert_called_once_with()
         bc.start.assert_called_once_with()

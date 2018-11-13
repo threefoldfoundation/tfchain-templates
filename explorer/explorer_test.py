@@ -135,7 +135,7 @@ class TestExplorerTemplate(TestCase):
                 'flist': 'https://hub.gig.tech/tfchain/ubuntu-16.04-tfchain-latest.flist'
             }
         explorer.api.services.find_or_create.assert_called_once_with(
-            'github.com/zero-os/0-templates/container/0.0.1',
+            'github.com/threefoldtech/0-templates/container/0.0.1',
             explorer._container_name,
             data=container_data
             )
@@ -355,7 +355,7 @@ class TestExplorerTemplate(TestCase):
 
         explorer.state.check('status', 'running', 'ok')
         explorer.api.services.get.assert_called_with(
-            template_uid='github.com/zero-os/0-templates/container/0.0.1',
+            template_uid='github.com/threefoldtech/0-templates/container/0.0.1',
             name=explorer._container_name
         )
         container.delete.assert_called_once_with()
