@@ -2,7 +2,7 @@ import os
 import time
 import requests
 
-from jumpscale import j
+from js9 import j
 from zerorobot.service_collection import ServiceNotFoundError
 from zerorobot.template.base import TemplateBase
 from zerorobot.template.decorator import retry
@@ -46,10 +46,10 @@ class BlockCreatorStatusReporter(TemplateBase):
     def _node(self):
         if not self._node_:
             try:
-                self._node_ = self.api.services.get(template_uid='github.com/threefoldtech/0-templates/node/0.0.1', name=self.data['node'])
+                self._node_ = self.api.services.get(template_uid='github.com/zero-os/0-templates/node/0.0.1', name='local')
             except ServiceNotFoundError:
                 pass
-        return self._node_            
+        return self._node_
 
     def start(self):
         self.state.set('status', 'running', 'ok')
@@ -63,13 +63,12 @@ class BlockCreatorStatusReporter(TemplateBase):
             self.state.check('status', 'running', 'ok')
         except StateCheckError:
             return
-        
+
         if self._block_creator:
             report_task = self._block_creator.schedule_action('report')
         if self._node:
             stats_task = self._node.schedule_action('stats')
             info_task = self._node.schedule_action('info')
-
 
         payload = dict()
 
@@ -80,7 +79,6 @@ class BlockCreatorStatusReporter(TemplateBase):
                 payload["chain_status"] = report_task.result
             else:
                 payload["chain_status"] = {'wallet_status': 'error'}
-            
 
         if self._node:
             # Gather stats info
@@ -90,11 +88,11 @@ class BlockCreatorStatusReporter(TemplateBase):
                 payload['stats'] = stats
                 for stat_kind, stat in stats_task.result.items():
                     stats[stat_kind] = stat['history']['300']
-            
+
             # Gather node info
             info_task.wait()
             if info_task.state == 'ok':
                 payload['info'] = info_task.result
 
-        headers = { 'content-type': 'application/json'}
+        headers = {'content-type': 'application/json'}
         requests.request('PUT', self._url, json=payload, headers=headers)
