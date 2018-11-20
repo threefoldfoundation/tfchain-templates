@@ -1,4 +1,4 @@
-@0xd01b2137b77c8344;
+@0xb96c7457b3a2bc76;
 
 struct Schema {
     node @0: Text;                # reference to the node running the tfchain container
