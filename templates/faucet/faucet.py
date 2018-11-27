@@ -1,5 +1,6 @@
 import os
 import time
+import io
 from random import shuffle
 
 from jumpscale import j
@@ -203,6 +204,8 @@ class Faucet(TemplateBase):
         except StateCheckError:
             container.schedule_action('start').wait(die=True)
 
+        self.write_caddyfile()
+
         self._daemon_sal.start()
         self.state.set('status', 'running', 'ok')
 
@@ -210,6 +213,8 @@ class Faucet(TemplateBase):
         self._wallet_unlock()
 
         self._start_faucet()
+
+        self._start_caddy()
 
         self.state.set('actions', 'start', 'ok')
 
@@ -307,6 +312,46 @@ class Faucet(TemplateBase):
 
         return report
 
+    def write_caddyfile(self):
+        """Writes the caddy file to enable https"""
+        buffer = io.BytesIO()
+        url = self.data.get('domain')
+        # trim possible http or https prefixes
+        if url.startswith('http://'):
+            url = url[7:]
+        if url.startswith('https://'):
+            url = url[8:]
+
+        # Caddyfile template
+        template = """
+        http://{0} {
+            redir https://{0}
+        }
+
+        https://{0} {
+            proxy / localhost:8080 {
+                transparent
+            }
+            tls support@threefoldtoken.com
+        }""".format(url)
+
+        template_bytes = template.encode('utf-8')
+        buffer.write(template_bytes)
+
+        # location for caddyfile
+        config_location = '/Caddyfile'
+        # Upload file
+        self._container_sal.upload_content(config_location, buffer)
+
+    def _start_caddy(self, timeout=150):
+        cmd_line = '/caddy -conf /Caddyfile'
+        cmd = self._container_sal.client.system(cmd_line, id='caddy.{}'.format(self.name))
+        port = 80
+
+        while not self._container_sal.is_port_listening(port, timeout):
+            result = cmd.get()
+            raise RuntimeError("could not start caddy.\nstdout: %s\nstderr: %s" % (result.stdout, result.stderr))
+
     def _monitor(self):
         """ Unlock wallet if locked """
         self.state.check('actions', 'install', 'ok')
@@ -344,9 +389,9 @@ class Faucet(TemplateBase):
         self.data['tfchainFlist'] = flist
 
     def _start_faucet(self, timeout=150):
-        cmd_line = '/mnt/faucet/tftfaucet -port 80'
+        cmd_line = '/mnt/faucet/tftfaucet -port 8080'
         cmd = self._container_sal.client.system(cmd_line, id='faucet.{}'.format(self.name))
-        port = 80
+        port = 8080
 
         while not self._container_sal.is_port_listening(port, timeout):
             result = cmd.get()
