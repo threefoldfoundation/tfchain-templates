@@ -331,6 +331,8 @@ class Faucet(TemplateBase):
             proxy / localhost:8080 {{
                 transparent
             }}
+
+            log stdout
             tls support@threefoldtoken.com
         }}""".format(url)
 
@@ -344,7 +346,7 @@ class Faucet(TemplateBase):
     def _start_caddy(self, timeout=150):
         cmd_line = '/caddy -conf /Caddyfile'
         cmd = self._container_sal.client.system(cmd_line, id='caddy.{}'.format(self.name))
-        port = 80
+        port = 443
 
         while not self._container_sal.is_port_listening(port, timeout):
             result = cmd.get()
