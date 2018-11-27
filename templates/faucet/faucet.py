@@ -324,16 +324,16 @@ class Faucet(TemplateBase):
 
         # Caddyfile template
         template = """
-        http://{0} {
+        http://{0} {{
             redir https://{0}
-        }
+        }}
 
-        https://{0} {
-            proxy / localhost:8080 {
+        https://{0} {{
+            proxy / localhost:8080 {{
                 transparent
-            }
+            }}
             tls support@threefoldtoken.com
-        }""".format(url)
+        }}""".format(url)
 
         template_bytes = template.encode('utf-8')
         buffer.write(template_bytes)
