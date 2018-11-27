@@ -389,7 +389,7 @@ class Faucet(TemplateBase):
         self.data['tfchainFlist'] = flist
 
     def _start_faucet(self, timeout=150):
-        cmd_line = '/mnt/faucet/tftfaucet -port 8080'
+        cmd_line = '/mnt/faucet/faucet -port 8080'
         cmd = self._container_sal.client.system(cmd_line, id='faucet.{}'.format(self.name))
         port = 8080
 
