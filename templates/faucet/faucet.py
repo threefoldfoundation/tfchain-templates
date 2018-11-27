@@ -344,7 +344,7 @@ class Faucet(TemplateBase):
         self._container_sal.upload_content(config_location, template_bytes)
 
     def _start_caddy(self, timeout=150):
-        cmd_line = '/mnt/faucet/caddy -conf /Caddyfile'
+        cmd_line = '/mnt/faucet/bin/caddy -conf /Caddyfile'
         cmd = self._container_sal.client.system(cmd_line, id='caddy.{}'.format(self.name))
         port = 443
 
