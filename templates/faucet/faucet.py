@@ -314,7 +314,6 @@ class Faucet(TemplateBase):
 
     def write_caddyfile(self):
         """Writes the caddy file to enable https"""
-        buffer = io.BytesIO()
         url = self.data.get('domain')
         # trim possible http or https prefixes
         if url.startswith('http://'):
@@ -336,12 +335,11 @@ class Faucet(TemplateBase):
         }}""".format(url)
 
         template_bytes = template.encode('utf-8')
-        buffer.write(template_bytes)
 
         # location for caddyfile
         config_location = '/Caddyfile'
         # Upload file
-        self._container_sal.upload_content(config_location, buffer)
+        self._container_sal.upload_content(config_location, template_bytes)
 
     def _start_caddy(self, timeout=150):
         cmd_line = '/caddy -conf /Caddyfile'
