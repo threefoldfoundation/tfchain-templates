@@ -13,7 +13,7 @@ PEER_DISCOVERY_TEMPLATE_UID = 'github.com/threefoldtoken/0-templates/peer_discov
 
 
 class BlockCreator(TemplateBase):
-    version = '0.0.1'
+    version = '0.0.2'
     template_name = 'block_creator'
 
     _DATA_DIR = '/mnt/data'
