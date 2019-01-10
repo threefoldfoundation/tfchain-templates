@@ -21,11 +21,26 @@ struct Schema {
     network @6: Text="standard";
 
     # flist to use for tfchain
-    tfchainFlist @7: Text="https://hub.gig.tech/tfchain/ubuntu-16.04-tfchain-latest.flist";
+    tfchainFlist @7: Text="https://hub.grid.tf/tf-autobuilder/threefoldfoundation-tfchain-bridge_tft_erc20_autostart.flist";
  
     # parent interface for macvlan, if not set then discovered automatically
     parentInterface @8: Text=""; 
 
     # mac address for the macvlan interface
     macAddress @9: Text=""; 
+
+    # bridged server rpc port
+    bridgedRpcPort @10: UInt32;
+
+    # etherum network
+    ethNetwork @11: Text;
+
+    # etherum port
+    ethPort @12: UInt32;
+
+    # etherum account json
+    ethAccountJson @13: Text;
+
+    # etherum account password
+    ethAccountPassword @14: Text;
 }

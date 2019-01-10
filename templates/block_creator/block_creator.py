@@ -105,12 +105,38 @@ class BlockCreator(TemplateBase):
         nic = {'type': 'macvlan', 'id': parent_if, 'name': 'stoffel', 'config': {'dhcp': True}}
         if self.data['macAddress']:
             nic['hwaddr'] = self.data['macAddress']
+
+        
+        rpcAddr = "0.0.0.0:{}".format(self.data["rpcPort"])
+        apiAddr = "0.0.0.0:{}".format(self.data["apiPort"])
+        tfchainNetwork = self.data["network"]
+        ethNetwork = self.data["ethNetwork"]
+        ethPort = self.data["ethPort"]
+        ethAccountJson = self.data["ethAccountJson"]
+        ethAccountPassword = self.data["ethAccountPassword"]
+        bridgedRpcAddr = "localhost:{}".format(self.data["bridgedRpcPort"])
+
+
+        #TODO: ethAccount password comes from configmanager?
+        container_env = {
+            "TFCHAIND_RPC_ADDR": rpcAddr,
+            "TFCHAIND_APIADDR": apiAddr,
+            "TFCHAIND_NETWORK": tfchainNetwork,
+            "BRIDGED_RPC_ADDR": bridgedRpcAddr,
+            "ETH_NETWORK": ethNetwork,
+            "ETH_PORT": ethPort,
+            "ETH_ACCOUNT_JSON": ethAccountJson,
+            "ETH_ACCOUNT_PASSWORD": ethAccountPassword
+        }
+
         container_data = {
             'flist': self.data['tfchainFlist'],
             'node': self.data['node'],
             'nics': [nic],
-            'mounts': mounts
+            'mounts': mounts,
+            'env': container_env,
         }
+
         return self.api.services.find_or_create(CONTAINER_TEMPLATE_UID, self._container_name, data=container_data)
 
     @retry((RuntimeError), tries=5, delay=2, backoff=2)
