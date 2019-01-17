@@ -78,7 +78,8 @@ class Explorer(TemplateBase):
             if not candidates:
                 raise RuntimeError("Could not find interface for macvlan parent")
             elif len(candidates) > 1:
-                raise RuntimeError("Found multiple eligible interfaces for macvlan parent: %s" % ", ".join(c['dev'] for c in candidates))
+                raise RuntimeError("Found multiple eligible interfaces for macvlan parent: %s" %
+                                   ", ".join(c['dev'] for c in candidates))
             parent_if = candidates[0]['dev']
 
         nic = {'type': 'macvlan', 'id': parent_if, 'name': 'stoffel', 'config': {'dhcp': True}}
@@ -147,10 +148,12 @@ class Explorer(TemplateBase):
 
         container = self._get_container()
         # ensure container is installed and running
-        try:
-            container.state.check('actions', 'start', 'ok')
-        except StateCheckError:
-            container.schedule_action('start').wait(die=True)
+        # ensure container is installed and running
+        for action in ['install', 'start']:
+            try:
+                container.state.check('actions', action, 'ok')
+            except StateCheckError:
+                container.schedule_action(action).wait(die=True)
 
         self._node_sal.client.nft.open_port(self.data['rpcPort'])
         self._node_sal.client.nft.open_port(443)
