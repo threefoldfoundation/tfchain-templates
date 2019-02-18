@@ -10,7 +10,7 @@ from JumpscaleZrobot.test.utils import ZrobotBaseTest
 from zerorobot.template.state import StateCheckError
 from zerorobot import service_collection as scol
 import gevent
-from explorer import Explorer
+from faucet import Faucet
 
 
 def mockdecorator(func):
@@ -25,20 +25,22 @@ patch("zerorobot.template.decorator.retry",
       MagicMock(return_value=mockdecorator)).start()
 
 
-class TestExplorerTemplate(ZrobotBaseTest):
+class TestFaucetTemplate(ZrobotBaseTest):
     @classmethod
     def setUpClass(cls):
-        super().preTest(os.path.dirname(__file__), Explorer)
+        super().preTest(os.path.dirname(__file__), Faucet)
         cls.valid_data = {
             'node': 'local',
             'rpcPort': 23112,
             'apiPort': 23110,
             'domain': 'coolcoin',
             'network': 'devnet',
-            'explorerFlist': "https://hub.grid.tf/tf-autobuilder/threefoldfoundation-tfchain-explorer-autostart-master_faucetexplorerautobuild.flist",
+            'ethPort': 3003,
+            'faucetFlist': "https://hub.grid.tf/tf-autobuilder/threefoldfoundation-tfchain-faucet-autostart-master_faucetexplorerautobuild.flist",
             'walletSeed': '',
             'walletPassphrase': '',
             'walletAddr': '',
+            'faucetPort': 8080,
         }
 
     def setUp(self):
@@ -51,34 +53,35 @@ class TestExplorerTemplate(ZrobotBaseTest):
         patch.stopall()
 
     def test_create_valid_data(self):
-        bc = Explorer(name='e', data=self.valid_data)
+        bc = Faucet(name='f', data=self.valid_data)
         assert bc.data == self.valid_data
 
     def test_node_sal(self):
 
         get_node = patch('jumpscale.j.clients.zos.get',
                          MagicMock(return_value='node')).start()
-        bc = Explorer('e', data=self.valid_data)
+        bc = Faucet('f', data=self.valid_data)
         node_sal = bc._node_sal
         assert get_node.called
         assert node_sal == 'node'
 
     def test_service_container_name(self):
-        bc = Explorer('e', data=self.valid_data)
+        bc = Faucet('f', data=self.valid_data)
         assert bc._container_name == "container-{}".format(bc.guid)
 
     def test_blockcreator_service_name(self):
-        bc = Explorer('e', data=self.valid_data)
+        bc = Faucet('f', data=self.valid_data)
         assert bc._block_creator_name == "block_creator-{}".format(bc.guid)
 
     def test_install(self):
-        bc = Explorer('e', data=self.valid_data)
+        bc = Faucet('f', data=self.valid_data)
         # sp = MagicMock()
         # fs = MagicMock()
         # fs.path = 'mypath'
         # sp.get.return_value = fs
         # bc._node_sal.storagepools.get = MagicMock(return_value=sp)
         bc.api = MagicMock()
+
         waitf = MagicMock()
         bc._block_creator.schedule_action = MagicMock(return_value=waitf)
 
@@ -92,7 +95,7 @@ class TestExplorerTemplate(ZrobotBaseTest):
         bc.state.check('actions', 'install', 'ok')
 
     def test_install_with_value_error(self):
-        bc = Explorer('e', data=self.valid_data)
+        bc = Faucet('f', data=self.valid_data)
 
         bc.api = MagicMock()
 
@@ -105,12 +108,11 @@ class TestExplorerTemplate(ZrobotBaseTest):
             bc.state.check('actions', 'install', 'ok')
 
     def test__get_container_not_installed(self):
-        bc = Explorer('e', data=self.valid_data)
+        bc = Faucet('f', data=self.valid_data)
         sp = MagicMock()
         fs = MagicMock()
-
         fs.path = 'mypath'
-        sp.get = MagicMock(return_value=fs)
+        sp.get.return_value = fs
         bc._node_sal.storagepools.get = MagicMock(return_value=sp)
         bc.api = MagicMock()
         bc._node_sal.client.filesystem = MagicMock()
@@ -128,13 +130,13 @@ class TestExplorerTemplate(ZrobotBaseTest):
             assert bc._get_caddyfile.called
 
     def test__get_container_installed(self):
-        bc = Explorer('e', data=self.valid_data)
+        bc = Faucet('f', data=self.valid_data)
         bc.state.set("actions", "install", "ok")
+
         sp = MagicMock()
         fs = MagicMock()
-
         fs.path = 'mypath'
-        sp.get = MagicMock(return_value=fs)
+        sp.get.return_value = fs
         bc._node_sal.storagepools.get = MagicMock(return_value=sp)
         bc.api = MagicMock()
         bc._node_sal.client.filesystem = MagicMock()
@@ -151,7 +153,7 @@ class TestExplorerTemplate(ZrobotBaseTest):
         assert bc._get_caddyfile.called
 
     def test_start(self):
-        bc = Explorer('e', data=self.valid_data)
+        bc = Faucet('f', data=self.valid_data)
         bc.state.set('actions', 'install', 'ok')
         bc._get_container = MagicMock()
         bc.api = MagicMock()
@@ -167,7 +169,7 @@ class TestExplorerTemplate(ZrobotBaseTest):
         bc.state.check('actions', 'start', 'ok')
 
     def test_start_not_install(self):
-        bc = Explorer('e', data=self.valid_data)
+        bc = Faucet('f', data=self.valid_data)
         bc._get_container = MagicMock()
         bc.api = MagicMock()
         bc._block_creator.schedule_action = MagicMock()
@@ -177,7 +179,7 @@ class TestExplorerTemplate(ZrobotBaseTest):
             bc.start()
 
     def test_stop(self):
-        bc = Explorer('e', data=self.valid_data)
+        bc = Faucet('f', data=self.valid_data)
         bc.state.set('actions', 'start', 'ok')
         bc.state.set('status', 'running', 'ok')
 
@@ -195,7 +197,7 @@ class TestExplorerTemplate(ZrobotBaseTest):
             bc.state.check('actions', 'start', 'ok')
 
     def test_uninstall(self):
-        bc = Explorer('e', data=self.valid_data)
+        bc = Faucet('f', data=self.valid_data)
         sp = MagicMock()
         fs = MagicMock()
         fs.path = 'mypath'
@@ -214,7 +216,7 @@ class TestExplorerTemplate(ZrobotBaseTest):
             bc.state.check('actions', 'intsall', 'ok')
 
     def test_uninstall_with_value_error(self):
-        bc = Explorer('e', data=self.valid_data)
+        bc = Faucet('f', data=self.valid_data)
         bc.api = MagicMock()
         sp = MagicMock()
         fs = MagicMock()
@@ -223,7 +225,6 @@ class TestExplorerTemplate(ZrobotBaseTest):
         sp.get.return_value = fs
         bc._node_sal.storagepools.get = MagicMock(return_value=sp)
         bc.state.set("actions", "install", "ok")
-
         bc.uninstall()
         assert fs.delete.called
         with pytest.raises(StateCheckError):
@@ -231,10 +232,10 @@ class TestExplorerTemplate(ZrobotBaseTest):
             bc.state.check('actions', 'intsall', 'ok')
 
     def test_upgrade(self):
-        bc = Explorer('e', data=self.valid_data)
+        bc = Faucet('f', data=self.valid_data)
         bc.stop = MagicMock()
         bc.start = MagicMock()
         bc.upgrade("myflist")
         bc.stop.assert_called_once()
         bc.start.assert_called_once()
-        assert bc.data['explorerFlist'] == 'myflist'
+        assert bc.data['faucetFlist'] == 'myflist'

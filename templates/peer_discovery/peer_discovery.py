@@ -19,9 +19,7 @@ class PeerDiscovery(TemplateBase):
                 raise ValueError('"{}" is required'.format(key))
 
     def install(self):
-        """
-        Install peer_discovery
-        """
+        """Install peer_discovery."""
         try:
             self.state.check('actions', 'install', 'ok')
             return
@@ -29,7 +27,8 @@ class PeerDiscovery(TemplateBase):
             pass
 
         # schedule peer discovery
-        self.recurring_action('discover_peers', self.data['intervalScanNetwork'])
+        self.recurring_action(
+            'discover_peers', self.data['intervalScanNetwork'])
 
         # schedule adding peers
         self.recurring_action('add_peer', self.data['intervalAddPeer'])
@@ -51,19 +50,21 @@ class PeerDiscovery(TemplateBase):
         return j.sal_zos.tfchain.client(**kwargs)
 
     def discover_peers(self, link=None):
-        """ Add new local peers
+        """Add new local peers.
 
-            @link: network interface name
+        @link: network interface name
         """
         self.logger.info('start network scanning')
         client = self._client_sal
 
-        peers = client.discover_local_peers(link=link, port=self.data['rpcPort'])
+        peers = client.discover_local_peers(
+            link=link, port=self.data['rpcPort'])
         # shuffle list of peers
         shuffle(peers)
 
         # fetch list of connected peers
-        connected_peers = [addr['netaddress'] for addr in client.gateway_stat()['peers']]
+        connected_peers = [addr['netaddress']
+                           for addr in client.gateway_stat()['peers']]
 
         # add update list of discovered peers
         self.data['discoveredPeers'] = []
@@ -72,7 +73,7 @@ class PeerDiscovery(TemplateBase):
                 self.data['discoveredPeers'].append(peer)
 
     def add_peer(self):
-        """ Add a peer from list of discovered peers """
+        """Add a peer from list of discovered peers."""
 
         if self.data['discoveredPeers']:
             peer = self.data['discoveredPeers'].pop(0)

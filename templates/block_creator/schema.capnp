@@ -21,11 +21,6 @@ struct Schema {
     network @6: Text="standard";
 
     # flist to use for tfchain
-    tfchainFlist @7: Text="https://hub.gig.tech/tfchain/ubuntu-16.04-tfchain-latest.flist";
- 
-    # parent interface for macvlan, if not set then discovered automatically
-    parentInterface @8: Text=""; 
+    tfchainFlist @7: Text="https://hub.grid.tf/tf-autobuilder/threefoldfoundation-tfchain-tfchain-autostart-master.flist";
 
-    # mac address for the macvlan interface
-    macAddress @9: Text=""; 
 }

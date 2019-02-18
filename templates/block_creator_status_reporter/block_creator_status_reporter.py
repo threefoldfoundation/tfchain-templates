@@ -8,9 +8,11 @@ from zerorobot.template.decorator import retry
 from zerorobot.template.state import StateCheckError
 from zerorobot.template.decorator import timeout
 
+BLOCK_CREATOR_TEMPLATE_UID = 'github.com/threefoldtoken/0-templates/block_creator/0.0.2'
+
 
 class BlockCreatorStatusReporter(TemplateBase):
-    version = '0.0.1'
+    version = '0.0.2'
     template_name = 'block_creator_status_reporter'
 
     def __init__(self, name=None, guid=None, data=None):
@@ -30,7 +32,8 @@ class BlockCreatorStatusReporter(TemplateBase):
     def _block_creator(self):
         if not self._block_creator_:
             try:
-                self._block_creator_ = self.api.services.get(template_uid='github.com/threefoldtoken/0-templates/block_creator/0.0.1', name=self.data['blockCreator'])
+                self._block_creator_ = self.api.services.get(
+                    template_uid=BLOCK_CREATOR_TEMPLATE_UID, name=self.data['blockCreator'])
             except ServiceNotFoundError:
                 pass
         return self._block_creator_
@@ -38,14 +41,16 @@ class BlockCreatorStatusReporter(TemplateBase):
     @property
     def _url(self):
         if not self._url_:
-            self._url_ = self.data['postUrlTemplate'].format(block_creator_identifier=self.data['blockCreatorIdentifier'])
+            self._url_ = self.data['postUrlTemplate'].format(
+                block_creator_identifier=self.data['blockCreatorIdentifier'])
         return self._url_
 
     @property
     def _node(self):
         if not self._node_:
             try:
-                self._node_ = self.api.services.get(template_uid='github.com/threefoldtech/0-templates/node/0.0.1', name='local')
+                self._node_ = self.api.services.get(
+                    template_uid='github.com/threefoldtech/0-templates/node/0.0.1', name='local')
             except ServiceNotFoundError:
                 pass
         return self._node_
@@ -83,7 +88,8 @@ class BlockCreatorStatusReporter(TemplateBase):
                 self.logger.info("stats about of block creator received")
                 payload["chain_status"] = report_task.result
             else:
-                self.logger.error("error during stats gathering of block creator")
+                self.logger.error(
+                    "error during stats gathering of block creator")
                 payload["chain_status"] = {'wallet_status': 'error'}
 
         if self._node:
@@ -103,5 +109,7 @@ class BlockCreatorStatusReporter(TemplateBase):
                 payload['info'] = info_task.result
 
         self.logger.info("pushing data to influxdb")
-        headers = {'content-type': 'application/json'}
-        requests.request('PUT', self._url, json=payload, headers=headers)
+
+        if payload:
+            headers = {'content-type': 'application/json'}
+            requests.request('PUT', self._url, json=payload, headers=headers)

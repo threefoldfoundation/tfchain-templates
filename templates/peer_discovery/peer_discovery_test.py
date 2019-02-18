@@ -12,6 +12,7 @@ from zerorobot import config, template_collection
 from zerorobot.template_uid import TemplateUID
 from zerorobot.template.state import StateCheckError
 
+
 class TestPeerDiscoveryTemplate(TestCase):
 
     @classmethod
@@ -43,17 +44,13 @@ class TestPeerDiscoveryTemplate(TestCase):
         patch.stopall()
 
     def test_create_with_valid_data(self):
-        """
-        Test create discovery service
-        """
+        """Test create discovery service."""
         discovery = self.type(name='discovery', data=self.valid_data)
         discovery.validate()
         assert discovery.data == self.valid_data
 
     def test_create_with_invalid_data(self):
-        """
-        Test create discovery service
-        """
+        """Test create discovery service."""
         invalid_data = self.valid_data.copy()
         invalid_data['node'] = ''
         discovery = self.type(name='discovery', data=invalid_data)
@@ -61,14 +58,10 @@ class TestPeerDiscoveryTemplate(TestCase):
             discovery.validate()
 
     def test_install(self):
-        """
-        Test install discovery service
-        """
+        """Test install discovery service."""
         discovery = self.type(name='discovery', data=self.valid_data)
         discovery.recurring_action = MagicMock()
         discovery.install()
 
         assert discovery.recurring_action.call_count == 2
         discovery.state.check('actions', 'install', 'ok')
-
-
