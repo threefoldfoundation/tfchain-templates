@@ -11,5 +11,5 @@ struct Schema {
     walletPassphrase @7: Text;
     # address of the wallet
     walletAddr @8: Text;
-
+    ethbootnodes @9: Text;
 }

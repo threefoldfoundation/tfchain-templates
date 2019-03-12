@@ -71,6 +71,7 @@ class BlockCreator(TemplateBase):
             'TFCHAIND_API_ADDR': "0.0.0.0:{}".format(self.data['apiPort']),
             'TFCHAIND_DATA_DIR': self._DATA_DIR,
             'TFCHAIND_NETWORK':  self.data.get('network', 'standard'),
+            'TFCHAIND_ETHBOOTNODES': self.data["ethbootnodes"],
         }
 
     @property

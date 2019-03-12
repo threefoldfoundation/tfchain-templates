@@ -16,7 +16,7 @@ name = "core.system"
 [startup.bridged.args]
 name = "/bin/bridged"
 args = ["--rpc-addr={BRIDGED_RPC_ADDR}",
-    "--network={TFCHAIND_NETWORK}", "--ethport={ETH_PORT}"]
+    "--network={TFCHAIND_NETWORK}", "--ethport={ETH_PORT}", "--ethbootnodes={BRIDGED_ETHBOOTNODES}"]
 
 """
 
@@ -64,6 +64,7 @@ class Bridged(TemplateBase):
             'ETH_PORT': str(self.data['ethPort']),
             'ETH_ACCOUNT_JSON': self.data['accountJson'],
             'ETH_ACCOUNT_PASSWORD': self.data['accountPassword'],
+            'BRIDGED_ETHBOOTNODES': self.data['ethbootnodes'],
         }
 
     def _get_container(self):

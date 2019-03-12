@@ -20,7 +20,10 @@ struct Schema {
     # network to join
     network @6: Text="standard";
 
+    # ethereum bootnodes
+    ethbootnodes @7: Text;
+
     # flist to use for tfchain
-    tfchainFlist @7: Text="https://hub.grid.tf/tf-autobuilder/threefoldfoundation-tfchain-tfchain-autostart-master.flist";
+    tfchainFlist @8: Text="https://hub.grid.tf/tf-autobuilder/threefoldfoundation-tfchain-tfchain-autostart-master.flist";
 
 }
