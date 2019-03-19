@@ -21,7 +21,7 @@ name = "/sandbox/bin/geth"
 args = ["--{GETH_NETWORK}", "--verbosity={GETH_VERBOSITY}",
     "--lightserv={GETH_LIGHTSERV}", "--nat={GET_NAT}", "--{GETH_V5DISC}", 
     "--syncmode={GETH_SYNCMODE}", "--datadir={GETH_DATADIR}", "--rpc", 
-    "--rpcaddr=0.0.0.0", "--ethport={GETH_PORT}"]
+    "--rpcaddr=0.0.0.0", "--port={GETH_PORT}", "--nodekey"={GETH_NODEKEY}]
 """
 
 class Geth(TemplateBase):
@@ -71,7 +71,8 @@ class Geth(TemplateBase):
             'GETH_NAT':  str(self.data['nat']),
             'GETH_V5DISC': str(self.data['v5disc']),
             'GETH_DATADIR': str(self.data['datadir']),
-            'GETH_PORT': str(self.data['ethport'])
+            'GETH_PORT': str(self.data['ethport']),
+            'GETH_NODEKEY': str(self.data['nodekey']),
         }
 
     def _get_container(self):
@@ -122,7 +123,7 @@ class Geth(TemplateBase):
             fs = sp.get(self.guid)
         except ValueError:
             fs = sp.create(self.guid)
-
+    
         self.logger.info('installing geth %s', self.name)
 
         self.state.set('actions', 'install', 'ok')
@@ -152,7 +153,7 @@ class Geth(TemplateBase):
 
         self._get_container()
 
-        self.state.set('status', 'running', 'ok')
+        self.state.set('status', 'started', 'ok')
         self.state.set('actions', 'start', 'ok')
 
     def stop(self):
@@ -176,18 +177,69 @@ class Geth(TemplateBase):
         self.stop()
         # restart geth in new container
         self.start()
+    
+    def run (self):
+        """runs geth."""
+        # Check if container is started
+        self.state.check('actions', 'start', 'ok')
+
+        self.check_empty_values_args()
+    
+        args = ["--rpc", "--{network}".format(**self.data), "--verbosity={verbosity}".format(**self.data),
+        "--lightserv={lightserv}".format(**self.data), "--nat={nat}".format(**self.data), "--{v5disc}".format(**self.data), 
+        "--syncmode={syncmode}".format(**self.data), "--datadir={datadir}".format(**self.data),
+        "--rpcaddr=0.0.0.0", "--port={ethport}".format(**self.data), "--nodekey={nodekey}".format(**self.data)]
+
+        container = self._node_sal.containers.get(self._container_name)
+
+        if not container.client.filesystem.exists("/sandbox/bin/bootnode.key"):
+            """
+                Generate new bootnode key for this node if it does not exists
+            """
+            container.client.system("/sandbox/bin/bootnode -genkey /sandbox/bin/bootnode.key")
+
+        start_cmd = "/sandbox/bin/geth {}".format(' '.join(map(str ,args)))
+
+        # Start the geth node process with given args
+        container.client.system(start_cmd)
+
+        self.state.set('status', 'running', 'ok')
+        self.state.set('actions', 'run', 'ok')
+    
+    def check_empty_values_args (self):
+        if str(self.data['verbosity']) == "":
+            self.data['verbosity'] = 4
+        if str(self.data['lightserv']) == "":
+            self.data['lightserv'] = 90
+        if str(self.data['nat']) == "":
+            self.data['nat'] = "none"
+        if str(self.data['v5disc']) == "":
+            self.data['v5disc'] = "v5disc"
+        if str(self.data['syncmode']) == "":
+            self.data['syncmode'] = "full"
+        if str(self.data['ethport']) == "":
+            self.data['ethport'] = 30303
+        if str(self.data['nodekey']) == "":
+            self.data['nodekey'] = "/sandbox/bin/bootnode.key"
 
     def get_enode_address(self):
         port=self.data['ethport']
         container = self._node_sal.containers.get(self._container_name)
         ip = str(container.default_ip().ip)
     
-        container = self._node_sal.containers.get(self._container_name)
-        container.client.system("/sandbox/bin/bootnode -genkey bootnode.key").get()
-        enode_address = container.client.system("/sandbox/bin/bootnode -nodekey bootnode.key -writeaddress").get().stdout
+        enode_address = container.client.system("/sandbox/bin/bootnode -nodekey /sandbox/bin/bootnode.key -writeaddress").get().stdout
     
         enode="enode://{}@{}:{}".format(enode_address.strip("\n"), ip, port)
         return enode
+
+    def get_args(self):
+        args = ["--rpc", "--{network}".format(**self.data), "--verbosity={verbosity}".format(**self.data),
+        "--lightserv={lightserv}".format(**self.data), "--nat={nat}".format(**self.data), "--{v5disc}".format(**self.data), 
+        "--syncmode={syncmode}".format(**self.data), "--datadir={datadir}".format(**self.data),
+        "--rpcaddr=0.0.0.0", "--port={ethport}".format(**self.data), "--nodekey={nodekey}".format(**self.data)]
+        
+        start_cmd = "/sandbox/bin/geth {}".format(' '.join(map(str ,args)))
+        return start_cmd
 
     def _check_sync(self):
         """
