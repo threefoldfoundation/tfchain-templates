@@ -1,4 +1,4 @@
-@0xfc6d822cb69e2d25;
+@0x8f59de9c3b29e41e;
 
 
 struct Schema {
@@ -9,7 +9,8 @@ struct Schema {
     ethPort @3: UInt32=3003; 
     accountJson @4: Text;
     accountPassword @5: Text;
+    ethbootnodes @6: Text;
     # autostart flist for bridged
-    bridgedFlist @6: Text="https://hub.grid.tf/tf-autobuilder/threefoldfoundation-tfchain-bridged-autostart-master.flist";
+    bridgedFlist @7: Text="https://hub.grid.tf/tf-autobuilder/threefoldfoundation-tfchain-bridged-autostart-master.flist";
 
 }

@@ -60,6 +60,7 @@ class Explorer(TemplateBase):
             'TFCHAIND_DATA_DIR': self._DATA_DIR,
             'TFCHAIND_NETWORK':  self.data.get('network', 'standard'),
             'BLOCK_CREATOR_API_ADDR': blockcreator_api_addr,
+            'TFCHAIND_ETHBOOTNODES': self.data["ethbootnodes"],
         }
 
     def _get_container(self):

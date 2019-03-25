@@ -1,4 +1,4 @@
-@0xd01b2137b77c8344;
+@0xe6641479f7821354;
 
 struct Schema {
     node @0: Text;                # reference to the node running the tfchain container
@@ -11,5 +11,5 @@ struct Schema {
     walletPassphrase @7: Text;
     # address of the wallet
     walletAddr @8: Text;
-
+    ethbootnodes @9: Text;
 }
