@@ -196,7 +196,7 @@ class Geth(TemplateBase):
             """
                 Generate new bootnode key for this node if it does not exists
             """
-            container.client.system("/sandbox/bin/bootnode -genkey /sandbox/bin/bootnode.key")
+            container.client.system("/sandbox/bin/bootnode -genkey /mnt/data/bootnode.key")
 
         start_cmd = "/sandbox/bin/geth {}".format(' '.join(map(str ,args)))
 
@@ -227,7 +227,7 @@ class Geth(TemplateBase):
         container = self._node_sal.containers.get(self._container_name)
         ip = str(container.default_ip().ip)
     
-        enode_address = container.client.system("/sandbox/bin/bootnode -nodekey /sandbox/bin/bootnode.key -writeaddress").get().stdout
+        enode_address = container.client.system("/sandbox/bin/bootnode -nodekey /mnt/data/bootnode.key -writeaddress").get().stdout
     
         enode="enode://{}@{}:{}".format(enode_address.strip("\n"), ip, port)
         return enode
