@@ -12,6 +12,7 @@ This template is responsible for deploying bridged daemon.
 - `walletPassphrase`: wallet passphrase, if omitted, one will be generated
 - `walletAddr`: address of the wallet
 - `network`: network to join, default standard
+- `ethbootnodes`: Custom ethereum bootnodes to connect to at startup
 - `bridgedFlist`: the flist to be used for the bridged (default: https://hub.grid.tf/tf-autobuilder/threefoldfoundation-tfchain-bridged-autostart-master.flist)
 
 
