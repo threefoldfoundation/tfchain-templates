@@ -15,6 +15,7 @@ This template is responsible for deploying an explorer node.
 - `walletSeed`: wallet's primary seed, should be set at start
 - `walletPassphrase`: wallet passphrase, if omitted, one will be generated
 - `walletAddr`: address of the wallet
+- `ethbootnodes`: Custom ethereum bootnodes to connect to at startup
 
 
 ## Actions
