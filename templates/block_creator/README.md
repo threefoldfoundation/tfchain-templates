@@ -32,7 +32,7 @@ This template is responsible for deploying block creator node.
 
 ```python
 data = {'node':'node1'}
-bc = robot.services.create('github.com/threefoldtoken/0-templates/block_creator/0.0.2','block_creator', data)
+bc = robot.services.create('github.com/threefoldfoundation/tfchain-templates/block_creator/0.0.2','block_creator', data)
 bc.schedule_action('install')
 bc.schedule_action('start')
 ```
