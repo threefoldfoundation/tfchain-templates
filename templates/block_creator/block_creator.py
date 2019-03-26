@@ -109,16 +109,10 @@ class BlockCreator(TemplateBase):
         vol_backup = os.path.join(fs.path, 'backups')
         node_fs.mkdir(vol_backup)
 
-        mounts = [
-            {
-                'source': vol,
-                'target': self._DATA_DIR
-            },
-            {
-                'source': vol_backup,
-                'target': self._BACKUP_DIR
-            },
-        ]
+        mounts = { 
+            vol : self._DATA_DIR,
+            vol_backup: self._BACK_DIR
+        }
 
         container_data = {
             'flist': self.data['tfchainFlist'],
