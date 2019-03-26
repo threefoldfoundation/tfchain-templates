@@ -192,7 +192,7 @@ class Geth(TemplateBase):
 
         container = self._node_sal.containers.get(self._container_name)
 
-        if not container.client.filesystem.exists("/sandbox/bin/bootnode.key"):
+        if not container.client.filesystem.exists("/mnt/data/bootnode.key"):
             """
                 Generate new bootnode key for this node if it does not exists
             """
@@ -220,7 +220,7 @@ class Geth(TemplateBase):
         if str(self.data['ethport']) == "":
             self.data['ethport'] = 30303
         if str(self.data['nodekey']) == "":
-            self.data['nodekey'] = "/sandbox/bin/bootnode.key"
+            self.data['nodekey'] = "/mnt/data/bootnode.key"
 
     def get_enode_address(self):
         port=self.data['ethport']
