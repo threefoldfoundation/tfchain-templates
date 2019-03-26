@@ -92,12 +92,10 @@ class Geth(TemplateBase):
         vol = os.path.join(fs.path, self.guid)
         node_fs.mkdir(vol)
 
-        mounts = [
-            {
-                'source': vol,
-                'target': self._DATA_DIR
-            }
-        ]
+        mounts = {
+            vol: self._DATA_DIR
+        }
+        
 
         container_data = {
             'flist': self.data['gethFlist'],
@@ -182,8 +180,6 @@ class Geth(TemplateBase):
         """runs geth."""
         # Check if container is started
         self.state.check('actions', 'start', 'ok')
-
-        self.check_empty_values_args()
     
         args = ["--rpc", "--{network}".format(**self.data), "--verbosity={verbosity}".format(**self.data),
         "--lightserv={lightserv}".format(**self.data), "--nat={nat}".format(**self.data), "--{v5disc}".format(**self.data), 
@@ -205,22 +201,6 @@ class Geth(TemplateBase):
 
         self.state.set('status', 'running', 'ok')
         self.state.set('actions', 'run', 'ok')
-    
-    def check_empty_values_args (self):
-        if str(self.data['verbosity']) == "":
-            self.data['verbosity'] = 4
-        if str(self.data['lightserv']) == "":
-            self.data['lightserv'] = 90
-        if str(self.data['nat']) == "":
-            self.data['nat'] = "none"
-        if str(self.data['v5disc']) == "":
-            self.data['v5disc'] = "v5disc"
-        if str(self.data['syncmode']) == "":
-            self.data['syncmode'] = "full"
-        if str(self.data['ethport']) == "":
-            self.data['ethport'] = 30303
-        if str(self.data['nodekey']) == "":
-            self.data['nodekey'] = "/mnt/data/bootnode.key"
 
     def get_enode_address(self):
         port=self.data['ethport']

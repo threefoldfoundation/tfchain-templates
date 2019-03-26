@@ -1,4 +1,4 @@
-@0x858f77a7826e53be;
+@0x807aa84714b13fbe;
 
 struct Schema {
     network @0: Text="testnet"; # ethereum network preference, 'testnet', 'rinkeby', ..'
@@ -9,6 +9,6 @@ struct Schema {
     nat @5: Text="none"; # ethereum natmode, 'none', ..
     datadir @6: Text="/mnt/data"; # ethereum datadir
     ethport @7: UInt32=30303; # ethereum port
-    nodekey @8: Text="/sandbox/bin/bootnode.key"; # ethereum bootnode key used for enode address
+    nodekey @8: Text="/mnt/data/bootnode.key"; # ethereum bootnode key used for enode address
     gethFlist @9: Text="https://hub.grid.tf/tf-official-apps/geth.flist"; # flist to use for geth
 }
