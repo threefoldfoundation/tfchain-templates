@@ -111,7 +111,7 @@ class BlockCreator(TemplateBase):
 
         mounts = { 
             vol : self._DATA_DIR,
-            vol_backup: self._BACK_DIR
+            vol_backup: self._BACKUP_DIR
         }
 
         container_data = {
