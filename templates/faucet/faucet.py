@@ -9,12 +9,10 @@ from zerorobot.template.base import TemplateBase
 from zerorobot.template.decorator import retry
 from zerorobot.template.state import StateCheckError
 
-
-BLOCK_CREATOR_UID = 'github.com/threefoldfoundation/tfchain-templates/block_creator/0.0.2'
-
+CONTAINER_TEMPLATE_UID = 'github.com/threefoldtech/0-templates/container/0.0.1'
 
 class Faucet(TemplateBase):
-    version = '0.0.2'
+    version = '0.0.1'
     template_name = 'faucet'
 
     _DATA_DIR = '/mnt/data'
@@ -24,20 +22,15 @@ class Faucet(TemplateBase):
         # bind uninstall action to the delete method
         self.add_delete_callback(self.uninstall)
         self._node_sal = j.clients.zos.get('local')
-        self.__client_sal = None
 
-        # wallet_passphrase = self.data.get('walletPassphrase')
-        # if not wallet_passphrase:
-        #     self.data['walletPassphrase'] = j.data.idgenerator.generateGUID()
+        wallet_passphrase = self.data.get('walletPassphrase')
+        if not wallet_passphrase:
+            self.data['walletPassphrase'] = j.data.idgenerator.generateGUID()
+
+        self.recurring_action('_monitor', 30)  # every 30 seconds
 
     @property
     def _container_sal(self):
-        """container sal object based on the container_name created by the
-        service.
-
-        Returns:
-            Container -- container the service operating on
-        """
         return self._node_sal.containers.get(self._container_name)
 
     @property
@@ -45,33 +38,28 @@ class Faucet(TemplateBase):
         return "container-%s" % self.guid
 
     @property
-    def _container_autostart_env(self):
-        """Gets autostart environment variables required to autostart the flist
-        the container booting from.
-
-        Returns:
-            dict -- Environment variables required by startup.toml
-        """
-
-        blockcreator_api_addr = self._block_creator.schedule_action(
-            'get_api_addr').wait().result
-        return {
-            'TFCHAIND_RPC_ADDR': '0.0.0.0:%s' % self.data['rpcPort'],
-            'TFCHAIND_API_ADDR': '0.0.0.0:%s' % self.data['apiPort'],
-            'TFCHAIND_DATA_DIR': self._DATA_DIR,
-            'TFCHAIND_NETWORK':  self.data.get('network', 'standard'),
-            'FAUCET_WEBSITE_PORT': str(self.data['faucetPort']),
-            'BLOCK_CREATOR_API_ADDR': blockcreator_api_addr,
+    def _daemon_sal(self):
+        kwargs = {
+            'name': self.name,
+            'container': self._container_sal,
+            'rpc_addr': '0.0.0.0:%s' % self.data['rpcPort'],
+            'api_addr': 'localhost:%s' % self.data['apiPort'],
+            'data_dir': self._DATA_DIR,
+            'network': self.data.get('network', 'standard')
         }
+        return j.sal_zos.tfchain.daemon(**kwargs)
+
+    @property
+    def _client_sal(self):
+        kwargs = {
+            'name': self.name,
+            'container': self._container_sal,
+            'api_addr': 'localhost:%s' % self.data['apiPort'],
+            'wallet_passphrase': self.data['walletPassphrase'],
+        }
+        return j.sal_zos.tfchain.client(**kwargs)
 
     def _get_container(self):
-        """Create container object and prepare the filesystem.
-
-        Returns:
-            Container -- container the service is operating on.
-        """
-        self.state.check("actions", "install", "ok")
-
         sp = self._node_sal.storagepools.get('zos-cache')
         try:
             fs = sp.get(self.guid)
@@ -91,147 +79,327 @@ class Faucet(TemplateBase):
                 'target': self._DATA_DIR
             },
             {
+                'source': self.data['faucetFlist'],
+                'target': '/mnt/faucet/'
+            },
+            {
                 'source': caddy,
                 'target': '/.caddy/'
             }
         ]
 
+        # determine parent interface for macvlan
+        parent_if = self.data.get("parentInterface")
+        if not parent_if:
+            candidates = list()
+            for route in self._node_sal.client.ip.route.list():
+                if route['gw']:
+                    candidates.append(route)
+            if not candidates:
+                raise RuntimeError("Could not find interface for macvlan parent")
+            elif len(candidates) > 1:
+                raise RuntimeError("Found multiple eligible interfaces for macvlan parent: %s" % ", ".join(c['dev'] for c in candidates))
+            parent_if = candidates[0]['dev']
+
+        nic = {'type': 'macvlan', 'id': parent_if, 'name': 'stoffel', 'config': {'dhcp': True}}
+        if self.data['macAddress']:
+            nic['hwaddr'] = self.data['macAddress']
         container_data = {
-            'flist': self.data['faucetFlist'],
-            'mounts': mounts,
-            'name': self._container_name,
+            'flist': self.data['tfchainFlist'],
+            'node': self.data['node'],
+            'nics': [nic],
+            'mounts': mounts
         }
+        return self.api.services.find_or_create(CONTAINER_TEMPLATE_UID, self._container_name, data=container_data)
 
-        container_data['ports'] = {
-            '80': 80,
-            '443': 443,
-        }
-        container_data['env'] = self._container_autostart_env
-
-        # remove write_caddyfile calls once this works
-        container_data['config'] = {'/Caddyfile': self._get_caddyfile()}
-        self._container = self._node_sal.containers.create(**container_data)
-        return self._container
-
-    @property
-    def _block_creator_name(self):
-        return "block_creator-{}".format(self.guid)
-
-    def _create_blockcreator(self):
-        blockcreator_data = {
-            'node': self._node_sal.name,
-            'rpcPort': self.data['rpcPort'],
-            'apiPort': self.data['apiPort'],
-            'walletSeed': self.data['walletSeed'],
-            'walletPassphrase': self.data['walletPassphrase'],
-            'walletAddr': self.data['walletAddr'],
-            'network': self.data['network'],
-        }
-        return self.api.services.find_or_create(template_uid=BLOCK_CREATOR_UID, service_name=self._block_creator_name, data=blockcreator_data)
-
-    @property
-    def _block_creator(self):
+    @retry((RuntimeError), tries=5, delay=2, backoff=2)
+    def _wallet_init(self):
+        """
+        initialize the wallet with a new seed and password
+        """
         try:
-            return self.api.services.get(template_uid=BLOCK_CREATOR_UID, name=self._block_creator_name)
-        except ServiceNotFoundError:
-            raise
+            self.state.check('wallet', 'init', 'ok')
+            return
+        except StateCheckError:
+            pass
+
+        self.logger.info('initializing wallet %s', self.name)
+        self._client_sal.wallet_init()
+        self.data['walletSeed'] = self._client_sal.recovery_seed
+        self.state.set('wallet', 'init', 'ok')
+
+    @retry((RuntimeError), tries=5, delay=2, backoff=2)
+    def _wallet_unlock(self):
+        """
+        unlock the wallet, so it can start creating blocks and inspecting amount and addresses
+        """
+        try:
+            self.state.check('wallet', 'unlock', 'ok')
+            return
+        except StateCheckError:
+            pass
+        import time
+        start = time.time()
+        while time.time() - start < 1800:
+            cmd = self._container_sal.client.system("/tfchainc").get()
+            if cmd.state == 'ERROR':
+                time.sleep(5)
+            else:
+                break
+        self._client_sal.wallet_unlock()
+        self.state.set('wallet', 'unlock', 'ok')
 
     def install(self):
         """
         Creating tfchain container with the provided flist, and configure mounts for datadirs
             'flist': TFCHAIN_FLIST,
         """
-        self.logger.info('installing tftfaucet %s', self.name)
-        self._create_blockcreator()
-        self._block_creator.schedule_action('install').wait()
+        self.logger.info('installing tfcaind %s', self.name)
+        container = self._get_container()
+        # ensure container is installed and running
+        for action in ['install', 'start']:
+            try:
+                container.state.check('actions', action, 'ok')
+            except StateCheckError:
+                container.schedule_action(action).wait(die=True)
 
         self.state.set('actions', 'install', 'ok')
 
     def uninstall(self):
-        """Remove the persistent volume of the wallet, and delete the
-        container."""
+        """
+        Remove the persistent volume of the wallet, and delete the container
+        """
         try:
-            self._container_sal.stop()
-        except Exception as e:
-            self.logger.warning(
-                "removing container on the uninstall {}".format(e))
+            self.stop()
+            container = self.api.services.get(template_uid=CONTAINER_TEMPLATE_UID, name=self._container_name)
+            container.delete()
+        except (ServiceNotFoundError, LookupError):
+            pass
+        self.state.delete('status', 'running')
+
         try:
             # cleanup filesystem used by this robot
             sp = self._node_sal.storagepools.get('zos-cache')
             fs = sp.get(self.guid)
             fs.delete()
         except ValueError:
-            # filesystem doesn't exist, nothing else to do
+                # filesystem doesn't exist, nothing else to do
             pass
 
-        self._block_creator.schedule_action('uninstall').wait()
         self.state.delete('actions', 'install')
+        self.state.delete('wallet', 'unlock')
+        self.state.delete('wallet', 'init')
 
     def start(self):
-        """start both tfchain daemon and client."""
+        """
+        start both tfchain daemon and client
+        """
         self.state.check('actions', 'install', 'ok')
-        self._block_creator.schedule_action('start').wait()
+        self.logger.info('Starting tfchaind %s', self.name)
 
         container = self._get_container()
+        # ensure container is running
+        try:
+            container.state.check('actions', 'start', 'ok')
+        except StateCheckError:
+            container.schedule_action('start').wait(die=True)
 
-        # FIXME: remove when config parameter is supported for container create
         self.write_caddyfile()
 
+        self._daemon_sal.start()
         self.state.set('status', 'running', 'ok')
+
+        self._wallet_init()
+        self._wallet_unlock()
+
+        self._start_faucet()
+
+        self._start_caddy()
+
         self.state.set('actions', 'start', 'ok')
 
     def stop(self):
-        """stop tftaucet."""
-        self.logger.info('Stopping faucet %s', self.name)
-        self._container_sal.stop()
-
-        self._block_creator.schedule_action('stop').wait()
+        """
+        stop tfchain daemon
+        """
+        self.logger.info('Stopping tfchain daemon %s', self.name)
+        try:
+            self._daemon_sal.stop()
+            # force stop container
+            container = self.api.services.get(template_uid=CONTAINER_TEMPLATE_UID, name=self._container_name)
+            container.schedule_action('stop').wait(die=True)
+        except (ServiceNotFoundError, LookupError):
+            container = self._get_container()
+            container.schedule_action('install').wait(die=True)
 
         self.state.delete('status', 'running')
         self.state.delete('actions', 'start')
+        self.state.delete('wallet', 'unlock')
 
-    def upgrade(self, faucetFlist=None):
-        """upgrade the container with an updated flist this is done by stopping
-        the container and respawn again with the updated flist.
+    def upgrade(self, tfchainFlist=None):
+        """upgrade the container with an updated flist
+        this is done by stopping the container and respawn again with the updated flist
 
-        faucetFlist: If provided, the current used flist will be replaced with the specified one
+        tfchainFlist: If provided, the current used flist will be replaced with the specified one
         """
-        # update flist
-        if faucetFlist:
-            self.data['faucetFlist'] = faucetFlist
-
+        # stop daemon
         self.stop()
+
+        # update flist
+        if tfchainFlist:
+            self.data['tfchainFlist'] = tfchainFlist
+
+        # delete and recreate the container
+        container = self.api.services.get(template_uid=CONTAINER_TEMPLATE_UID, name=self._container_name)
+        container.delete()
+        container = self._get_container()
+        container.schedule_action('install').wait(die=True)
+
+        # Node does not need to open this port anymore
+        self._node_sal.client.nft.drop_port(self.data['rpcPort'])
+
         # restart daemon in new container
         self.start()
 
-    def _get_caddyfile(self):
-        """formats caddy file with service domain to enable https."""
+    @retry((RuntimeError), tries=3, delay=2, backoff=2)
+    def wallet_address(self):
+        """
+        load wallet address into the service's data
+        """
+        self.state.check('wallet', 'init', 'ok')
+
+        if not self.data.get('walletAddr'):
+            self.data['walletAddr'] = self._client_sal.wallet_address
+        return self.data['walletAddr']
+
+    @retry((RuntimeError), tries=3, delay=2, backoff=2)
+    def wallet_amount(self):
+        """
+        return the amount of token in the wallet
+        """
+        self.state.check('wallet', 'unlock', 'ok')
+        return self._client_sal.wallet_amount()
+
+    @retry((RuntimeError), tries=3, delay=2, backoff=2)
+    def consensus_stat(self):
+        """
+        return information about the state of consensus
+        """
+        self.state.check('status', 'running', 'ok')
+        return self._client_sal.consensus_stat()
+
+    @retry((RuntimeError), tries=3, delay=2, backoff=2)
+    def report(self):
+        """
+        returns a full report containing the following fields:
+        - wallet_status = string [locked/unlocked]
+        - block_height = int
+        - active_blockstakes = int
+        - network = string [devnet/testnet/standard]
+        - confirmed_balance = int
+        - connected_peers = int
+        - address = string
+        """
+        self.state.check('status', 'running', 'ok')
+        report = self._client_sal.get_report()
+
+        report["network"] = self.data["network"]
+        peers = report["connected_peers"]
+        if isinstance(peers, list):
+            report["connected_peers"] = len(peers)
+        else:
+            report["connected_peers"] = int(peers)
+
+        return report
+
+    def write_caddyfile(self):
+        """Writes the caddy file to enable https"""
         url = self.data.get('domain')
-        url = url.lstrip("https://").lstrip("http://")
+        # trim possible http or https prefixes
+        if url.startswith('http://'):
+            url = url[7:]
+        if url.startswith('https://'):
+            url = url[8:]
 
         # Caddyfile template
         template = """
-        http://{url} {{
-            redir https://{url}
+        http://{0} {{
+            redir https://{0}
         }}
 
-        https://{url} {{
+        https://{0} {{
             proxy / localhost:8080 {{
                 transparent
             }}
 
             log stdout
             tls support@threefoldtoken.com
-        }}""".format(url=url)
-        return template
+        }}""".format(url)
 
-    # FIXME: remove when new robot flist is created, and send caddy file using config instead of upload_content
-    def write_caddyfile(self):
-        """Writes the caddy file to enable https."""
-        template = self._get_caddyfile()
-        template_bytes = template.encode()
+        template_bytes = template.encode('utf-8')
 
         # location for caddyfile
         config_location = '/Caddyfile'
         # Upload file
         self._container_sal.upload_content(config_location, template_bytes)
+
+    def _start_caddy(self, timeout=150):
+        cmd_line = '/mnt/faucet/bin/caddy -conf /Caddyfile'
+        cmd = self._container_sal.client.system(cmd_line, id='caddy.{}'.format(self.name))
+        port = 443
+
+        while not self._container_sal.is_port_listening(port, timeout):
+            result = cmd.get()
+            raise RuntimeError("could not start caddy.\nstdout: %s\nstderr: %s" % (result.stdout, result.stderr))
+
+    def _monitor(self):
+        """ Unlock wallet if locked """
+        self.state.check('actions', 'install', 'ok')
+        self.state.check('actions', 'start', 'ok')
+        try:
+            if self._daemon_sal.is_running():
+                self.state.set('status', 'running', 'ok')
+
+                # get container status
+                if self._client_sal.wallet_status() == 'locked':
+                    self.state.delete('wallet', 'unlock')
+
+                self._wallet_unlock()
+
+                return
+        except LookupError:
+            # container not found, need to call start
+            pass
+
+        self.state.delete('status', 'running')
+        self.state.delete('actions', 'start')
+        self.state.delete('wallet', 'unlock')
+
+        # force stop/delete container so install will create a new container
+        try:
+            container = self.api.services.get(template_uid=CONTAINER_TEMPLATE_UID, name=self._container_name)
+            container.delete()
+        except ServiceNotFoundError:
+            pass
+
+        self.install()
+        self.start()
+
+    def update_tfchain_flist(self, flist):
+        self.data['tfchainFlist'] = flist
+
+    def _start_faucet(self, timeout=150):
+        cmd_line = '/mnt/faucet/faucet -port 8080'
+        cmd = self._container_sal.client.system(cmd_line, id='faucet.{}'.format(self.name))
+        port = 8080
+
+        while not self._container_sal.is_port_listening(port, timeout):
+            result = cmd.get()
+            raise RuntimeError("could not start faucet.\nstdout: %s\nstderr: %s" % (result.stdout, result.stderr))
+
+def error_check(result, message):
+    """ Raise error if call wasn't successfull """
+
+    if result.state != 'SUCCESS':
+        err = '{}: {} \n {}'.format(message, result.stderr, result.data)
+        raise RuntimeError(err)
